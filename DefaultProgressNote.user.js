@@ -4,8 +4,8 @@
 // @description    Sets the default for Point Click Care progress note settings
 // @include        *chart/ipn/newipn.jsp*
 // @require   http://ajax.googleapis.com/ajax/libs/jquery/1.3/jquery.min.js
-// @updateURL 
-// @downloadURL 
+// @updateURL https://github.com/maywoodmedical/PCC/raw/main/DefaultProgressNote.user.js
+// @downloadURL https://github.com/maywoodmedical/PCC/raw/main/DefaultProgressNote.user.js
 // @version 1.0
 // ==/UserScript==
 

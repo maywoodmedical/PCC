@@ -4,8 +4,8 @@
 // @description Automatically select LTC billing form and service location 
 // @include     *billing.do?billRegion=BC&billForm=GP&hotclick=*
 // @require http://ajax.googleapis.com/ajax/libs/jquery/1.3/jquery.min.js
-// @updateURL 
-// @downloadURL 
+// @updateURL https://github.com/maywoodmedical/PCC/blob/main/LTCBilling.user.js
+// @downloadURL https://github.com/maywoodmedical/PCC/blob/main/LTCBilling.user.js
 // @version 1.0
 // @grant       none
 // ==/UserScript==

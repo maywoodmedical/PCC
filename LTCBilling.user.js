@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        LTC Billing
 // @namespace   https://github.com/maywoodmedical/Oscar
-// @description Automatically select LTC billing form and service location 
+// @description Automatically select LTC billing form, service location, and enter reg visit
 // @include     *billing.do?billRegion=BC&billForm=GP&hotclick=*
 // @require http://ajax.googleapis.com/ajax/libs/jquery/1.3/jquery.min.js
 // @updateURL https://github.com/maywoodmedical/PCC/blob/main/LTCBilling.user.js

@@ -1,49 +1,56 @@
 // ==UserScript==
-// @name        LTC Billing
+// @name        PCC LTC Billing
 // @namespace   https://github.com/maywoodmedical/Oscar
-// @description Automatically select LTC billing form, service location, and enter reg visit
+// @description Automatically select LTC billing form and service location 
 // @include     *billing.do?billRegion=BC&billForm=GP&hotclick=*
 // @require http://ajax.googleapis.com/ajax/libs/jquery/1.3/jquery.min.js
 // @updateURL https://github.com/maywoodmedical/PCC/blob/main/LTCBilling.user.js
 // @downloadURL https://github.com/maywoodmedical/PCC/blob/main/LTCBilling.user.js
-// @version 1.0
+// @version 1.1
 // @grant       none
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    // Function to select the option from a dropdown
+    // Function to select the option from a dropdown and trigger a change event
     function selectOptionByText(dropdownId, optionText) {
         let dropdown = document.getElementById(dropdownId);
         if (dropdown) {
             for (let i = 0; i < dropdown.options.length; i++) {
                 if (dropdown.options[i].text === optionText) {
                     dropdown.selectedIndex = i;
-                    dropdown.dispatchEvent(new Event('change')); // Trigger change event if needed
+                    dropdown.dispatchEvent(new Event('change', { bubbles: true })); // Trigger change event
+                    console.log(`Selected "${optionText}" in dropdown with ID "${dropdownId}".`);
                     break;
                 }
             }
+        } else {
+            console.warn(`Dropdown with ID "${dropdownId}" not found.`);
         }
     }
 
-    // Function to tick the checkbox
+    // Function to tick the checkbox and trigger a change event
     function tickCheckboxByValue(checkboxValue) {
         let checkboxes = document.querySelectorAll(`input[type="checkbox"][value="${checkboxValue}"]`);
         checkboxes.forEach(checkbox => {
             if (!checkbox.checked) {
                 checkbox.checked = true;
-                checkbox.dispatchEvent(new Event('change')); // Trigger change event if needed
+                checkbox.dispatchEvent(new Event('change', { bubbles: true })); // Trigger change event
+                console.log(`Checked checkbox with value "${checkboxValue}".`);
             }
         });
     }
 
-    // Function to fill the text box
+    // Function to fill the text box and trigger an input event
     function fillTextBoxByName(inputName, value) {
         let textBox = document.querySelector(`input[type="text"][name="${inputName}"]`);
         if (textBox) {
             textBox.value = value;
-            textBox.dispatchEvent(new Event('input')); // Trigger input event if needed
+            textBox.dispatchEvent(new Event('input', { bubbles: true })); // Trigger input event
+            console.log(`Filled text box with name "${inputName}" with value "${value}".`);
+        } else {
+            console.warn(`Text box with name "${inputName}" not found.`);
         }
     }
 
@@ -55,6 +62,23 @@
         fillTextBoxByName('xml_other1', '00114');
     }
 
+    // Ensure elements are available before running the setup
+    function waitForElement(selector, callback) {
+        const observer = new MutationObserver((mutationsList) => {
+            for (const mutation of mutationsList) {
+                if (mutation.type === 'childList' && document.querySelector(selector)) {
+                    observer.disconnect();
+                    callback();
+                    break;
+                }
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
     // Run the function when the page is fully loaded
-    window.addEventListener('load', setupPage);
+    window.addEventListener('load', () => {
+        waitForElement('#selectBillingForm', setupPage);
+    });
 })();

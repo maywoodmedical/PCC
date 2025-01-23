@@ -6,7 +6,7 @@
 // @require http://ajax.googleapis.com/ajax/libs/jquery/1.3/jquery.min.js
 // @updateURL https://github.com/maywoodmedical/PCC/blob/main/LTCBilling.user.js
 // @downloadURL https://github.com/maywoodmedical/PCC/blob/main/LTCBilling.user.js
-// @version 1.1
+// @version 1.2
 // @grant       none
 // ==/UserScript==
 
@@ -58,8 +58,8 @@
     function setupPage() {
         selectOptionByText('selectBillingForm', 'Long Term Care');
         selectOptionByText('xml_visittype', 'Continuing Care facility');
-        tickCheckboxByValue('00114');
-        fillTextBoxByName('xml_other1', '00114');
+        tickCheckboxByValue('98150');
+        fillTextBoxByName('xml_other1', '98150');
     }
 
     // Ensure elements are available before running the setup

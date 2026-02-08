@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name          PCC Default Progress Note (Fast & Responsive)
-// @namespace     https://github.com/maywoodmedical/Oscar
-// @description   Uses a fast interval to apply settings as soon as elements appear
-// @include       *chart/ipn/newipn.jsp*
-// @require       http://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js
-// @version       1.7
+// @name         PCCDefaultProgressNote
+// @namespace    https://github.com/maywoodmedical/Oscar
+// @description  Sets default Physician Visit, Friday's date, and auto-focuses text box
+// @include      *chart/ipn/newipn.jsp*
+// @require      http://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js
+// @version      1.8
 // ==/UserScript==
 
 (function() {
@@ -22,14 +22,14 @@
                d.getFullYear();
     }
 
-    // This function will run repeatedly until it succeeds once
     const checkExist = setInterval(function() {
         const $dropdown = $('select[name="pn_type_id"]');
         const $dateField = $('input[name="effective_date_dummy"]');
         const $hiddenField = $('input[name="effective_date"]');
+        const $textArea = $('#spellcheck0'); // Target the ID you provided
 
-        // Check if the specific fields we need are rendered
-        if ($dropdown.length && $dateField.length && !hasRun) {
+        // Check if the essential fields and the textarea are ready
+        if ($dropdown.length && $dateField.length && $textArea.length && !hasRun) {
             
             const friday = getFormattedFriday();
 
@@ -42,20 +42,25 @@
                 $hiddenField.val(friday);
             }
 
-            // 3. Trigger events to lock the value in the site's memory
+            // 3. Trigger events for the date field
             $dateField[0].dispatchEvent(new Event('input', { bubbles: true }));
             $dateField[0].dispatchEvent(new Event('change', { bubbles: true }));
-            $dateField[0].dispatchEvent(new Event('blur', { bubbles: true }));
 
-            console.log("PCC Fast-Load: Success.");
+            // 4. AUTO-FOCUS TEXT AREA
+            // We use a slight timeout (10ms) to ensure the browser is ready to accept focus
+            setTimeout(() => {
+                $textArea.focus();
+                // Optional: This moves the cursor to the end if there's existing text
+                const val = $textArea.val();
+                $textArea.val('').val(val); 
+            }, 10);
+
+            console.log("PCC Fast-Load: Fields set and cursor focused.");
             
-            // 4. Clean up: Stop the interval and lock the script
             hasRun = true;
             clearInterval(checkExist); 
         }
-    }, 100); // Check every 100ms (0.1 seconds)
+    }, 100);
 
-    // Safety: If for some reason the elements never appear, stop checking after 10 seconds
     setTimeout(() => clearInterval(checkExist), 10000);
-
 })();

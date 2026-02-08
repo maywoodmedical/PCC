@@ -1,84 +1,100 @@
 // ==UserScript==
-// @name        PCCLTCBilling
-// @namespace   https://github.com/maywoodmedical/Oscar
-// @description Automatically select LTC billing form and service location 
-// @include     *billing.do?billRegion=BC&billForm=GP&hotclick=*
-// @require http://ajax.googleapis.com/ajax/libs/jquery/1.3/jquery.min.js
-// @updateURL https://github.com/maywoodmedical/PCC/blob/main/LTCBilling.user.js
-// @downloadURL https://github.com/maywoodmedical/PCC/blob/main/LTCBilling.user.js
-// @version 1.3
-// @grant       none
+// @name         PCCLTCBilling
+// @namespace    https://github.com/maywoodmedical/Oscar
+// @description  LTC automation with "Smart Match" to prevent getting stuck
+// @include      *billing.do*
+// @version      2.0
+// @grant        none
+// @run-at       document-end
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    // Function to select the option from a dropdown and trigger a change event
-    function selectOptionByText(dropdownId, optionText) {
-        let dropdown = document.getElementById(dropdownId);
-        if (dropdown) {
-            for (let i = 0; i < dropdown.options.length; i++) {
-                if (dropdown.options[i].text === optionText) {
-                    dropdown.selectedIndex = i;
-                    dropdown.dispatchEvent(new Event('change', { bubbles: true })); // Trigger change event
-                    console.log(`Selected "${optionText}" in dropdown with ID "${dropdownId}".`);
-                    break;
-                }
-            }
-        } else {
-            console.warn(`Dropdown with ID "${dropdownId}" not found.`);
+    let actionTaken = false; 
+
+    // Helper: Checks if text matches, ignoring case and extra spaces
+    const smartMatch = (actual, target) => {
+        if (!actual) return false;
+        return actual.toLowerCase().trim().includes(target.toLowerCase().trim());
+    };
+
+    const getOptionText = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.options[el.selectedIndex]?.text : null;
+    };
+
+    const runAutomation = () => {
+        if (actionTaken) return;
+
+        // --- STEP A: FINAL SAVE (Summary Page) ---
+        const saveBtn = document.querySelector('input[type="submit"][name="submit"][value="Save Bill"]');
+        if (saveBtn) {
+            actionTaken = true;
+            saveBtn.click();
+            return;
         }
-    }
 
-    // Function to tick the checkbox and trigger a change event
-    function tickCheckboxByValue(checkboxValue) {
-        let checkboxes = document.querySelectorAll(`input[type="checkbox"][value="${checkboxValue}"]`);
-        checkboxes.forEach(checkbox => {
-            if (!checkbox.checked) {
-                checkbox.checked = true;
-                checkbox.dispatchEvent(new Event('change', { bubbles: true })); // Trigger change event
-                console.log(`Checked checkbox with value "${checkboxValue}".`);
-            }
-        });
-    }
+        // --- STEP B: DATA ENTRY ---
+        const form = document.getElementById('selectBillingForm');
+        const visitType = document.getElementById('xml_visittype');
+        const feeCheck = document.querySelector('input[type="checkbox"][value="98150"]');
+        const feeText = document.querySelector('input[name="xml_other1"]');
+        const dxInput = document.getElementById('jsonDxSearchInput-1');
 
-    // Function to fill the text box and trigger an input event
-    function fillTextBoxByName(inputName, value) {
-        let textBox = document.querySelector(`input[type="text"][name="${inputName}"]`);
-        if (textBox) {
-            textBox.value = value;
-            textBox.dispatchEvent(new Event('input', { bubbles: true })); // Trigger input event
-            console.log(`Filled text box with name "${inputName}" with value "${value}".`);
-        } else {
-            console.warn(`Text box with name "${inputName}" not found.`);
+        // 1. Logic to set values
+        if (form && !smartMatch(getOptionText('selectBillingForm'), 'Long Term Care')) {
+            const idx = Array.from(form.options).findIndex(o => smartMatch(o.text, 'Long Term Care'));
+            if (idx !== -1) { form.selectedIndex = idx; form.dispatchEvent(new Event('change', { bubbles: true })); }
         }
-    }
 
-    // Function to set up the page
-    function setupPage() {
-        selectOptionByText('selectBillingForm', 'Long Term Care');
-        selectOptionByText('xml_visittype', 'Continuing Care facility');
-        tickCheckboxByValue('98150');
-        fillTextBoxByName('xml_other1', '98150');
-    }
+        if (visitType && !smartMatch(getOptionText('xml_visittype'), 'Continuing Care facility')) {
+            const idx = Array.from(visitType.options).findIndex(o => smartMatch(o.text, 'Continuing Care facility'));
+            if (idx !== -1) { visitType.selectedIndex = idx; visitType.dispatchEvent(new Event('change', { bubbles: true })); }
+        }
 
-    // Ensure elements are available before running the setup
-    function waitForElement(selector, callback) {
-        const observer = new MutationObserver((mutationsList) => {
-            for (const mutation of mutationsList) {
-                if (mutation.type === 'childList' && document.querySelector(selector)) {
-                    observer.disconnect();
-                    callback();
-                    break;
+        if (feeCheck && !feeCheck.checked) {
+            feeCheck.checked = true;
+            feeCheck.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        if (feeText && feeText.value !== '98150') {
+            feeText.value = '98150';
+            feeText.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        if (dxInput && dxInput.value !== '2900') {
+            dxInput.value = '2900';
+            dxInput.dispatchEvent(new Event('input', { bubbles: true }));
+            dxInput.dispatchEvent(new Event('blur', { bubbles: true }));
+        }
+
+        // --- STEP C: THE "STUCK" PREVENTION ---
+        // We verify critical data (Fee and Dx) and use smartMatch for the labels
+        const criticalDataReady = (feeText && feeText.value === '98150') && (dxInput && dxInput.value === '2900');
+        const labelsReady = smartMatch(getOptionText('selectBillingForm'), 'Long Term Care') && 
+                            smartMatch(getOptionText('xml_visittype'), 'Continuing Care facility');
+
+        const continueBtn = document.querySelector('input[type="submit"][name="Submit"][value="Continue"]');
+
+        if (criticalDataReady && labelsReady && continueBtn) {
+            console.log("Verified. Submitting...");
+            actionTaken = true;
+            continueBtn.click();
+        } else if (criticalDataReady && continueBtn) {
+            // Safety Override: If fee and dx are right but labels are being stubborn after 1.5 seconds, click anyway
+            setTimeout(() => {
+                if (!actionTaken) {
+                    console.log("Safety override: Proceeding despite label mismatch.");
+                    actionTaken = true;
+                    continueBtn.click();
                 }
-            }
-        });
+            }, 1500);
+        }
+    };
 
-        observer.observe(document.body, { childList: true, subtree: true });
-    }
+    const observer = new MutationObserver(() => runAutomation());
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    // Run the function when the page is fully loaded
-    window.addEventListener('load', () => {
-        waitForElement('#selectBillingForm', setupPage);
-    });
+    runAutomation();
 })();

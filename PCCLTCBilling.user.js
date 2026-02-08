@@ -1,12 +1,12 @@
 // ==UserScript==
-// @name        PCC LTC Billing
+// @name        PCCLTCBilling
 // @namespace   https://github.com/maywoodmedical/Oscar
 // @description Automatically select LTC billing form and service location 
 // @include     *billing.do?billRegion=BC&billForm=GP&hotclick=*
 // @require http://ajax.googleapis.com/ajax/libs/jquery/1.3/jquery.min.js
 // @updateURL https://github.com/maywoodmedical/PCC/blob/main/LTCBilling.user.js
 // @downloadURL https://github.com/maywoodmedical/PCC/blob/main/LTCBilling.user.js
-// @version 1.2
+// @version 1.3
 // @grant       none
 // ==/UserScript==
 

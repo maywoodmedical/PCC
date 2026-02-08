@@ -5,6 +5,8 @@
 // @include      *billing.do*
 // @version      2.0
 // @grant        none
+// @updateURL    https://github.com/maywoodmedical/PCC/raw/refs/heads/main/PCCLTCBilling.user.js
+// @downloadURL  https://github.com/maywoodmedical/PCC/raw/refs/heads/main/PCCLTCBilling.user.js
 // @run-at       document-end
 // ==/UserScript==
 

@@ -3,6 +3,8 @@
 // @namespace   PhysicianWorkflows
 // @match       https://www60.pointclickcare.com/clinical/client/progressnotesviewall.xhtml*
 // @match       https://www60.pointclickcare.com/care/chart/wandv/viewallclientvitals.jsp*
+// @uploadURL   https://github.com/maywoodmedical/PCC/raw/refs/heads/main/PCCOptimizeLoading.user.js
+// @downloadURL https://github.com/maywoodmedical/PCC/raw/refs/heads/main/PCCOptimizeLoading.user.js
 // @grant       none
 // @version     1.1
 // @author      Gemini

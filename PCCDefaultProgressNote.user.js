@@ -2,9 +2,11 @@
 // @name         PCCDefaultProgressNote
 // @namespace    https://github.com/maywoodmedical/Oscar
 // @description  Sets default Physician Visit, Friday's date, and auto-focuses text box
-// @include      *chart/ipn/newipn.jsp*
-// @require      http://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js
-// @version      1.8
+// @match        *://*/chart/ipn/newipn.jsp*
+// @match        *://*/*chart/ipn/newipn.jsp*
+// @require      https://googleapis.com
+// @version      1.9
+// @grant        none
 // ==/UserScript==
 
 (function() {
@@ -26,7 +28,7 @@
         const $dropdown = $('select[name="pn_type_id"]');
         const $dateField = $('input[name="effective_date_dummy"]');
         const $hiddenField = $('input[name="effective_date"]');
-        const $textArea = $('#spellcheck0'); // Target the ID you provided
+        const $textArea = $('#spellcheck0'); 
 
         // Check if the essential fields and the textarea are ready
         if ($dropdown.length && $dateField.length && $textArea.length && !hasRun) {
@@ -34,7 +36,10 @@
             const friday = getFormattedFriday();
 
             // 1. Set Dropdown
-            $dropdown.val($dropdown.find('option:contains("Physician Visit")').val());
+            const targetOption = $dropdown.find('option:contains("Physician Visit")').val();
+            if (targetOption) {
+                $dropdown.val(targetOption);
+            }
 
             // 2. Set Date Fields
             $dateField.val(friday);
@@ -47,13 +52,11 @@
             $dateField[0].dispatchEvent(new Event('change', { bubbles: true }));
 
             // 4. AUTO-FOCUS TEXT AREA
-            // We use a slight timeout (10ms) to ensure the browser is ready to accept focus
             setTimeout(() => {
                 $textArea.focus();
-                // Optional: This moves the cursor to the end if there's existing text
                 const val = $textArea.val();
                 $textArea.val('').val(val); 
-            }, 10);
+            }, 50); // Increased slightly for slower medical EMR page loads
 
             console.log("PCC Fast-Load: Fields set and cursor focused.");
             

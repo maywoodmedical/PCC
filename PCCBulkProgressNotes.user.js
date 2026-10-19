@@ -10,8 +10,8 @@
 // @grant        GM_addValueChangeListener
 // @grant        unsafeWindow
 // @run-at       document-idle
-// @updateURL    
-// @downloadURL  
+// @updateURL    https://github.com/maywoodmedical/PCC/raw/refs/heads/main/PCCBulkProgressNotes.user.js
+// @downloadURL  https://github.com/maywoodmedical/PCC/raw/refs/heads/main/PCCBulkProgressNotes.user.js
 // ==/UserScript==
 
 (function () {

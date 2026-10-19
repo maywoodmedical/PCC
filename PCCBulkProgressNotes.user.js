@@ -10,6 +10,8 @@
 // @grant        GM_addValueChangeListener
 // @grant        unsafeWindow
 // @run-at       document-idle
+// @updateURL    
+// @downloadURL  
 // ==/UserScript==
 
 (function () {

@@ -13,6 +13,11 @@
 // @run-at       document-end
 // ==/UserScript==
 
+    // =====================================================================
+    // script detects appointments that appear in yellow on Oscar scheduling page which corresponds to the "To Do" appointment status
+    // it bills each appointment for Fee 98150 · Dx 2900 (senile dementia) · Long Term Care / Continuing Care facility.
+    // =====================================================================
+
 (function () {
     'use strict';
 

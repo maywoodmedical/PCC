@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PCCBulkProgressNotes
-// @namespace    maywood-oscar
-// @version      1.2
+// @namespace    newvista.pcc.bulknotes
+// @version      1.6
 // @description  Scan the 2 West / 2 South resident lists, tick who needs a custom note, and chart the standard Physician Visit note for everyone else.
 // @match        https://*.pointclickcare.com/*
 // @grant        GM_getValue
@@ -10,8 +10,6 @@
 // @grant        GM_addValueChangeListener
 // @grant        unsafeWindow
 // @run-at       document-idle
-// @updateURL    https://github.com/maywoodmedical/PCC/raw/refs/heads/main/PCCBulkProgressNotes.user.js
-// @downloadURL  https://github.com/maywoodmedical/PCC/raw/refs/heads/main/PCCBulkProgressNotes.user.js
 // ==/UserScript==
 
 (function () {
@@ -77,9 +75,26 @@
     return pad ? `${m}/${d}/${y}` : `${+m}/${+d}/${y}`;
   }
   // The chosen visit date resets to today on a new day.
+  // Most recent Friday (today, if today is Friday).
+  function isoLastFriday() {
+    const d = new Date();
+    d.setDate(d.getDate() - ((d.getDay() + 2) % 7));
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  function dateLabel(iso) {
+    const wd = new Date(iso + 'T12:00').toLocaleDateString('en-CA', { weekday: 'long' });
+    if (iso === isoToday()) return `${wd}, today`;
+    if (iso === isoLastFriday()) return 'last Friday';
+    return wd;
+  }
+  // Progress Notes page for a resident (instead of their profile).
+  function progNotesUrl(p) {
+    const m = (p.href || '').match(/ESOLclientid=([^&#]+)/);
+    return m ? `${location.origin}/clinical/client/progressnotes.xhtml?ESOLclientid=${m[1]}` : p.href;
+  }
   function getNoteDate() {
     const s = GM_getValue('noteDate', null);
-    return s && s.setOn === isoToday() && s.value <= isoToday() ? s.value : isoToday();
+    return s && s.setOn === isoToday() && s.value <= isoToday() ? s.value : isoLastFriday();
   }
   function parseDate(str) {
     let m = (str || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
@@ -165,7 +180,10 @@
   const getRun = () => GM_getValue('run', null);
   const saveRun = r => GM_setValue('run', r);
   const getRoster = () => GM_getValue('roster', {});
-  const getSkip = () => GM_getValue('skip', {});
+  // Ticks ("custom note") only last for the current charting session: they're cleared when a run
+  // starts, and forgotten if left for more than STALE_HOURS.
+  const getSkip = () => (Date.now() - GM_getValue('skipSetAt', 0) > STALE_HOURS * 3600000 ? {} : GM_getValue('skip', {}));
+  const setSkip = sk => { GM_setValue('skip', sk); GM_setValue('skipSetAt', Date.now()); };
   const current = r => (r && r.queue ? r.queue[r.idx] : null);
   // Anyone not listed as Active (e.g. Hospital) has not been seen and never gets a note.
   const isAway = p => !!norm(p.status) && norm(p.status) !== 'active';
@@ -335,7 +353,7 @@
     const nd = getNoteDate();
     html += `<hr><div><b>${charting}</b> standard notes · <b>${custom}</b> custom (skipped)${away ? ` · <b style="color:#b00">${away}</b> in hospital (no note)` : ''}</div>
       <label class="bn-row">Visit date <input type="date" id="bn-date" value="${nd}" max="${isoToday()}">
-        ${nd !== isoToday() ? '<b style="color:#b00">not today</b>' : '<span class="muted">today</span>'}</label>
+        <span class="${nd === isoLastFriday() ? 'muted' : ''}"${nd === isoLastFriday() ? '' : ' style="color:#b00;font-weight:600"'}>${esc(dateLabel(nd))}</span></label>
       <label class="bn-row"><input type="checkbox" id="bn-auto"${GM_getValue('autoSign', true) ? ' checked' : ''}>
         Sign automatically (asks for your password once per run)</label>
       <div><button class="sec" id="bn-test">Test on 1 patient</button><button id="bn-start">Start charting ${charting}</button>
@@ -351,7 +369,7 @@
       cb.onchange = () => {
         const sk = getSkip();
         if (cb.checked) sk[cb.dataset.skip] = true; else delete sk[cb.dataset.skip];
-        GM_setValue('skip', sk);
+        setSkip(sk);
         renderPanel();
       };
     });
@@ -364,7 +382,9 @@
     panel.querySelector('#bn-auto').onchange = e => GM_setValue('autoSign', e.target.checked);
     panel.querySelector('#bn-test').onclick = () => startRun(true);
     panel.querySelector('#bn-start').onclick = () => startRun(false);
-    panel.querySelector('#bn-clear').onclick = () => { if (confirm('Untick everyone?')) { GM_setValue('skip', {}); renderPanel(); } };
+    panel.querySelector('#bn-clear').onclick = () => { if (confirm('Untick everyone?')) { setSkip({}); renderPanel(); } };
+    const showTodo = panel.querySelector('#bn-showtodo');
+    if (showTodo) showTodo.onclick = () => { GM_setValue('todoOpen', true); renderTodoBox(); };
     const dismiss = panel.querySelector('#bn-dismiss');
     if (dismiss) dismiss.onclick = () => { GM_deleteValue('lastRun'); renderPanel(); };
   }
@@ -406,7 +426,7 @@
     if (!queue.length) { alert('Nobody to chart.'); return; }
     const runQueue = testOne ? queue.slice(0, 1) : queue;
     const noteDate = getNoteDate();
-    const dateLine = `Visit date: ${isoToMDY(noteDate, false)}${noteDate === isoToday() ? ' (today)' : ' — NOT today'}`;
+    const dateLine = `Visit date: ${isoToMDY(noteDate, false)}} (${dateLabel(noteDate)})`;
     const msg = testOne
       ? `Test run: chart the standard note for ${runQueue[0].name} only?\n\n${dateLine}`
       : `Chart and sign the standard "${NOTE_TYPE}" note for ${queue.length} residents?\n\n${dateLine}\n${skipped.length} ticked for a custom note will be left alone.${away.length ? `\n${away.length} in hospital will get no note.` : ''}\nOnly continue if you saw these residents on that date.`;
@@ -422,6 +442,7 @@
       queue: runQueue, skipped, away, noteDate, idx: 0, results: [], phase: 'goto', phaseTs: Date.now(),
       mode: auto ? 'auto' : 'manual', paused: false, error: null, attempts: 0, startedAt: Date.now(),
     });
+    setSkip({}); // this run has its own copy; next time starts with nobody ticked
     location.href = runQueue[0].href;
   }
 
@@ -440,13 +461,15 @@
     if (failed.length) h += `<div>${failed.map(f => `<div style="color:#b00">• ${esc(f.name)} — ${esc(f.note)}</div>`).join('')}</div>`;
     if (r.skipped && r.skipped.length) {
       h += `<div style="margin-top:6px"><b>Custom notes to write (${r.skipped.length}):</b></div>`;
-      h += r.skipped.map(p => `<div>• <a href="${esc(p.href)}">${esc(p.name)}</a> <span style="color:#777">${esc(p.unit)}</span></div>`).join('');
+      h += r.skipped.map(p => `<div>• <a href="${esc(progNotesUrl(p))}">${esc(p.name)}</a> <span style="color:#777">${esc(p.unit)}</span></div>`).join('');
     }
     if (r.away && r.away.length) {
       h += `<div style="margin-top:6px"><b>No note — in hospital (${r.away.length}):</b></div>`;
       h += r.away.map(p => `<div style="color:#b00">• ${esc(p.name)} <span style="color:#777">${esc(p.unit)}</span></div>`).join('');
     }
-    if (fromPanel) h += `<div><button class="sec" id="bn-dismiss">Dismiss</button></div>`;
+    if (fromPanel) {
+      h += `<div>${r.skipped && r.skipped.length ? '<button id="bn-showtodo">Show custom-notes list</button>' : ''}<button class="sec" id="bn-dismiss">Dismiss</button></div>`;
+    }
     return h;
   }
 
@@ -476,12 +499,18 @@
     }
     const c = current(r);
     if (r.phase === 'finished') {
-      box.innerHTML = summaryHtml(r, false).replace(/^<hr>/, '') + `<div><button id="bn-close">Close</button></div>`;
-      box.querySelector('#bn-close').onclick = () => {
+      box.innerHTML = summaryHtml(r, false).replace(/^<hr>/, '') +
+        `<div>${r.skipped && r.skipped.length ? '<button id="bn-keep">Keep custom-notes list on screen</button>' : ''}<button class="sec" id="bn-close">Close</button></div>`;
+      const finish = keep => {
         GM_setValue('lastRun', { results: r.results, skipped: r.skipped, away: r.away, finishedAt: Date.now() });
+        GM_setValue('todoOpen', keep);
         GM_deleteValue('run');
         box.remove();
+        renderTodoBox();
       };
+      box.querySelector('#bn-close').onclick = () => finish(false);
+      const keep = box.querySelector('#bn-keep');
+      if (keep) keep.onclick = () => finish(true);
       return;
     }
     box.innerHTML = `<b>Bulk notes</b> — ${r.idx + 1} of ${r.queue.length} · visit date ${isoToMDY(r.noteDate || isoToday(), false)}<br>${esc(c.name)} <span style="color:#777">(${esc(c.unit)})</span><br>
@@ -503,6 +532,57 @@
       GM_deleteValue('pw');
       renderOverlay();
     };
+  }
+
+  // ---------------- Custom-notes list (stays on screen across PCC pages) ----------------
+  function getTodoDone(last) {
+    const d = GM_getValue('todoDone', null);
+    return d && last && d.runAt === last.finishedAt ? d.ids : {};
+  }
+
+  function renderTodoBox() {
+    if (window.top !== window || /newipn|digitalsignature/.test(path)) return;
+    let box = document.getElementById('bn-todo');
+    const last = GM_getValue('lastRun', null);
+    const show = GM_getValue('todoOpen', false) && last && last.skipped && last.skipped.length && !getRun();
+    if (!show) { if (box) box.remove(); return; }
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'bn-todo';
+      box.style.cssText = 'position:fixed;bottom:16px;right:16px;width:250px;z-index:99998;' +
+        'background:#fff;border:2px solid #3d5a2a;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.25);' +
+        'font:12px/1.4 system-ui,sans-serif;color:#222;padding:8px';
+      document.body.appendChild(box);
+    }
+    const done = getTodoDone(last);
+    const left = last.skipped.filter(p => !done[p.id]).length;
+    const min = GM_getValue('todoMin', false);
+    const btn = 'border:0;border-radius:6px;padding:2px 8px;cursor:pointer;background:#eee;color:#222;margin-left:4px';
+    let h = `<div style="display:flex;justify-content:space-between;align-items:center">
+      <b>Custom notes to write (${left} left)</b>
+      <span><button id="bn-todo-min" style="${btn}" title="${min ? 'Expand' : 'Minimize'}">${min ? '▴' : '▾'}</button><button id="bn-todo-x" style="${btn}" title="Hide">✕</button></span></div>`;
+    if (!min) {
+      h += `<div style="max-height:160px;overflow-y:auto;margin-top:4px;padding-right:2px">`;
+      h += last.skipped.map(p => {
+        const d = !!done[p.id];
+        return `<label style="display:flex;gap:6px;align-items:center;padding:1px 0">
+          <input type="checkbox" data-todo="${esc(p.id)}"${d ? ' checked' : ''} title="Mark as written">
+          <a href="${esc(progNotesUrl(p))}" style="${d ? 'text-decoration:line-through;color:#888' : ''}">${esc(p.name)}</a>
+          <span style="color:#777">${esc(p.unit)}</span></label>`;
+      }).join('');
+      h += `</div><div style="color:#777;font-size:11px;margin-top:4px">Click a name for Progress Notes · tick once written</div>`;
+    }
+    box.innerHTML = h;
+    box.querySelector('#bn-todo-x').onclick = () => { GM_setValue('todoOpen', false); renderTodoBox(); };
+    box.querySelector('#bn-todo-min').onclick = () => { GM_setValue('todoMin', !min); renderTodoBox(); };
+    box.querySelectorAll('[data-todo]').forEach(cb => {
+      cb.onchange = () => {
+        const ids = { ...getTodoDone(last) };
+        if (cb.checked) ids[cb.dataset.todo] = true; else delete ids[cb.dataset.todo];
+        GM_setValue('todoDone', { runAt: last.finishedAt, ids });
+        renderTodoBox();
+      };
+    });
   }
 
   async function resumeRun() {
@@ -664,6 +744,8 @@
 
   if (!isPopup && window.top === window) {
     renderOverlay();
+    renderTodoBox();
+    for (const k of ['todoOpen', 'todoMin', 'todoDone', 'lastRun']) GM_addValueChangeListener(k, () => renderTodoBox());
     GM_addValueChangeListener('run', (key, oldV, newV, remote) => {
       renderOverlay();
       if (remote && newV && newV.phase === 'signed' && !newV.paused && /progressnotes\.xhtml/.test(path)) {
